@@ -2,7 +2,7 @@
 <h1 align="center">Hi 👋, I'm Ian Hawkins</h1>
 <h3 align="center">a quant finance developer in New Jersey</h3>
 
-- 🔭 I’m currently working on [quanti](https://github.com/ianxoquant/quantfi)
+- 🔭 I’m currently working on [quantfi](https://github.com/ianxoquant/quantfi)
 
 - 👯 I’m looking to collaborate on **pure functional libraries in quant finance**
 
