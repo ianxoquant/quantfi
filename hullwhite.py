@@ -1,6 +1,6 @@
 import numpy as np
 """Hull White cap and swaption calculators"""
-"""After Brigo/Mercurio"""
+"""After Brigo/Mercurio Second Edition pp71-77"""
 
 
 def AtT(r, a, v, T, t):
@@ -22,7 +22,8 @@ def PtT(r, a, v, T, t):
 
 
 def VtT(a, v, T, t):
-    pass
+    """Price volatility of a zero coupon bond"""
+    v * BtT(a, T, t) * np.sqrt(0.5*BtT(a, 2*T, 2*t))
 
 
 def ZB():
