@@ -1,3 +1,4 @@
+import unittest
 import numpy as np
 from scipy.stats import norm
 
@@ -52,7 +53,58 @@ def bachelier_by_analytic(option_type, strike, forward,
             volatility * (expiration / (2.0 * np.pi))**0.5 * np.exp(-d1**2.0 / 2.0))
     return premium
 
+
+# TODO CREATE TEST CASE VALUES FOR BOTH CALCULATORS FOR OUTRIGHT VALUE TEST
 # unit tests
 # assert premium values
 # assert put-call parity
 # check domain/range of each variable
+class TestBlackBachelierFunctions(unittest.TestCase):
+    def setUp(self) -> None:
+        return super().setUp()
+
+    def test_black(self):
+        # outright
+        self.assertAlmostEqual(black_by_analytic(OptionType.CALL, 5, 7, 1, 0.2, 0.9),
+                               1.820251460335865,
+                               9)
+        # ATM put-call parity
+        self.assertAlmostEqual(black_by_analytic(OptionType.CALL, 5, 5, 1, 0.2, 0.9),
+                               black_by_analytic(OptionType.PUT, 5, 5, 1, 0.2, 0.9),
+                               9)
+        self.assertAlmostEqual(black_by_analytic(OptionType.FORWARD, 5, 5, 1, 0.2, 0.9),
+                               0.0,
+                               9)
+        # ITM put-call parity
+        self.assertAlmostEqual(black_by_analytic(OptionType.CALL, 5, 7, 1, 0.2, 0.9) -
+                               black_by_analytic(OptionType.PUT, 5, 7, 1, 0.2, 0.9),
+                               black_by_analytic(OptionType.FORWARD, 5, 7, 1, 0.2, 0.9),
+                               9)
+
+        with self.assertRaises(TypeError):
+            black_by_analytic(0, 5, 7, 1, 0.2, 0.9)
+
+    def test_bachelier(self):
+        # outright
+        self.assertAlmostEqual(bachelier_by_analytic(OptionType.CALL, 5, 7, 1, 1, 0.9),
+                               1.8076416323551467,
+                               9)
+        # ATM put-call parity
+        self.assertAlmostEqual(bachelier_by_analytic(OptionType.CALL, 5, 5, 1, 1.0, 0.9),
+                               bachelier_by_analytic(OptionType.PUT, 5, 5, 1, 1.0, 0.9),
+                               9)
+        self.assertAlmostEqual(bachelier_by_analytic(OptionType.FORWARD, 5, 5, 1.0, 0.2, 0.9),
+                               0.0,
+                               9)
+        # ITM put-call parity
+        self.assertAlmostEqual(bachelier_by_analytic(OptionType.CALL, 5, 7, 1, 1, 0.9) -
+                               bachelier_by_analytic(OptionType.PUT, 5, 7, 1, 1, 0.9),
+                               bachelier_by_analytic(OptionType.FORWARD, 5, 7, 1, 0.2, 0.9),
+                               9)
+
+        with self.assertRaises(TypeError):
+            bachelier_by_analytic(0, 5, 7, 1, 0.2, 0.9)
+
+
+if __name__ == '__main__':
+    unittest.main()
