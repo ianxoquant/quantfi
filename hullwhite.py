@@ -5,8 +5,17 @@ import unittest
 """After Brigo/Mercurio Second Edition pp71-77"""
 
 
-def AtT(r, a, v, t, T):
-    pass
+def AtT(a, v, t, T, DFt, DFT, f):
+
+    BtT_value = BtT(a, t, T)
+    AtT_value = DFT/DFt * np.exp(BtT_value*f)
+
+    if a == 0.0:  # TODO should be an eps test?
+        AtT_value = AtT_value * np.exp(-np.pow(v*BtT_value, 2.0) *
+                                       (1.0 - np.exp(-2.0*a*t)))/(4.0*a)
+    else:
+        AtT_value = AtT_value * np.exp(-np.pow(v*BtT_value, 2.0) * (t/2.0))
+    return(AtT_value)
 
 
 def BtT(a, t, T):
@@ -17,8 +26,16 @@ def BtT(a, t, T):
         return((1.0/a*(1.0 - np.exp(-a*(T-t)))))
 
 
-def PtT(r, a, v, t, T):
-    pass
+def BtTdt(a, t, T, dt):
+    return(dt*BtT(a, t, T)/BtT(a, t, T+dt))
+
+
+def PtTr(a, v, t, T, DFt, DFT, f, r):
+    BtT_value = BtT(a, t, T)
+    AtT_value = AtT(a, t, T, DFt, DFT, f)
+
+    PtTr_value = AtT_value * np.exp(-BtT_value*r)
+    return(PtTr_value)
 
 
 def VtT(a, v, t, T):
