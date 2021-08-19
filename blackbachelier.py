@@ -14,6 +14,7 @@ def black_by_analytic(option_type, strike, forward,
     if not isinstance(option_type, OptionType):
         raise TypeError('option_type must be an instance of OptionType Enum')
 
+    """TODO:decide which of these conditions is a ValueError"""
     if strike <= 0. or forward <= 0. or expiration <= 0. or volatility <= 0.:
         return 0.
 

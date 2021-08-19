@@ -1,6 +1,8 @@
 import numpy as np
 import unittest
 
+from scipy.optimize import fsolve
+
 from globals import OptionType
 from blackbachelier import black_by_analytic
 
@@ -69,6 +71,20 @@ def PtTdtr(a, v, t, T, dt, DFt, DFT, DFdt, r):
     return(AtTdt_value*np.exp(-BtTdr_value*r))
 
 
+def PtTdtr_array(a, v, t, T, dt, DFt, DFT, DFdt, r):
+
+    if not (len(T) == len(DFT)):
+        raise ValueError('PtTdtr_array: length of T must equal length of dfT')
+
+    res = np.empty(0)
+    for Tval, DFval in zip(T, DFT):
+        BtTdr_value = BtTdt(a, t, Tval, dt)
+        AtTdt_value = AtTdt(a, v, t, Tval, dt, DFt, DFval, DFdt)
+        res = np.append(res, AtTdt_value*np.exp(-BtTdr_value*r))
+
+    return(res)
+
+
 def VsT(a, v, s, T):
     """Price volatility of a zero coupon bond"""
     """Note that this is a term vol not an annualized vol"""
@@ -82,7 +98,7 @@ def VsTwo(a, v, s, T):
     return(v/a * (1-np.exp(-a*(T-s))) * np.sqrt((1-np.exp(-2*a*s))/(2*a)))
 
 
-def ZB(option_type, a, v, X, s, T, dfs, dfT):
+def ZBO(option_type, a, v, X, s, T, dfs, dfT):
     """Option on zero coupon bond"""
 
     # calculate termvol and convert back into annual vol
@@ -94,8 +110,33 @@ def ZB(option_type, a, v, X, s, T, dfs, dfT):
     return(zb_val)
 
 
-def BO():
-    pass
+def CBO(option_type, CF, K, s, T, dt, DFs, DFT, DFdt, a, v):
+    """Option on par bond using Jamshidians decomposition"""
+    """check notional and dfT are the same length"""
+
+    if not isinstance(option_type, OptionType):
+        raise TypeError('CBO: option_type must be an instance of OptionType Enum')
+    if not (len(CF) == len(T)):
+        raise ValueError('CBO: length of cash flows must equal length of T')
+    if not (len(T) == len(DFT)):
+        raise ValueError('CBO: length of T must equal length of dfT')
+
+    dt = (T[0]-s)
+
+    # guess r_crit as forward at expiration
+    r_crit = -np.log(DFdt/DFs)/dt
+
+    r_crit = fsolve(lambda x:
+                    K-np.sum(CF*(PtTdtr_array(a, v, s, T, dt, DFs, DFT, DFT[0],  x))), r_crit)
+
+    ZBO_K = PtTdtr_array(a, v, s, T, dt, DFs, DFT, DFT[0], r_crit)
+    # TODO catch fsolve error
+
+    res = np.empty(0)
+    for Kval, Tval, DFval in zip(ZBO_K, T, DFT):
+        res = np.append(res, ZBO(option_type, a, v, Kval, s, Tval, DFs, DFval))
+
+    return(np.sum(res*CF))
 
 
 class TestHullWhiteFunctions(unittest.TestCase):
@@ -136,35 +177,51 @@ class TestHullWhiteFunctions(unittest.TestCase):
                                VsTwo(0.1, 0.015, 0.25, 1.25), 9)
 
     def test_Swaption(self):
-        # Hull page 578 example 21.2
-        # NOT COMFORTABLY CLOSE - SET UP A SPREADSHEET TO CHECK VALUES
-        r_star = 0.10675
+        # Hull page 578 example 21.2 - This example only has 2 dp on the options
+        # price. TODO: SET UP A SPREADSHEET TO CHECK VALUES TO MORE DECIMALS
+        r_star = 0.1067409  # tweaked to match r_crit in the swaption calculator
         self.assertAlmostEqual(6*PtTdtr(self.reversion(),
                                         self.volatility(),
                                         0.25, 0.75, 0.5,
                                         self.dfs()[0], self.dfs()[1], self.dfs()[1],
                                         r_star),
-                               5.688146619913514, 9)
+                               5.68814, 4)
+
         self.assertAlmostEqual(106*PtTdtr(self.reversion(),
                                           self.volatility(),
                                           0.25, 1.25, 0.5,
                                           self.dfs()[0], self.dfs()[2], self.dfs()[1],
                                           r_star),
-                               94.3109904581068, 9)
-        self.assertAlmostEqual(6*ZB(OptionType.PUT,
-                                    self.reversion(),
-                                    self.volatility(),
-                                    5.688146619913514/6,
-                                    0.25, 0.75,
-                                    self.dfs()[0], self.dfs()[1]),
-                               0.01330417860234255, 9)
-        self.assertAlmostEqual(106*ZB(OptionType.PUT,
-                                      self.reversion(),
-                                      self.volatility(),
-                                      94.3109904581068/106,
-                                      0.25, 1.25,
-                                      self.dfs()[0], self.dfs()[2]),
-                               0.42933558064943467, 9)
+                               94.31186, 4)
+
+        self.assertAlmostEqual(np.sum(np.array([6, 106]) *
+                               PtTdtr_array(self.reversion(),
+                                            self.volatility(),
+                                            0.25, np.array([0.75, 1.25]), 0.5,
+                                            self.dfs()[0], self.dfs()[1:], self.dfs()[1],
+                                            r_star)),
+                               100.0, 5)
+
+        self.assertAlmostEqual(6*ZBO(OptionType.PUT,
+                                     self.reversion(),
+                                     self.volatility(),
+                                     5.68814/6,
+                                     0.25, 0.75,
+                                     self.dfs()[0], self.dfs()[1]),
+                               0.01, 2)
+        self.assertAlmostEqual(106*ZBO(OptionType.PUT,
+                                       self.reversion(),
+                                       self.volatility(),
+                                       94.31186/106,
+                                       0.25, 1.25,
+                                       self.dfs()[0], self.dfs()[2]),
+                               0.43, 2)
+
+        self.assertAlmostEqual(CBO(OptionType.PUT, np.array([6, 106]),
+                                   100.0, 0.25, np.array([0.75, 1.25]), 0.5,
+                                   self.dfs()[0], self.dfs()[1:], self.dfs()[1],
+                                   self.reversion(), self.volatility()),
+                               0.44, 2)
 
 
 if __name__ == '__main__':
